@@ -3,6 +3,8 @@ from unittest.mock import patch
 from event_service_utils.tests.base_test_case import MockedServiceStreamTestCase
 from event_service_utils.tests.json_msg_helper import prepare_event_msg_tuple
 
+from mocked_streams import ManyKeyConsumerMockedStreamFactory
+
 from adaptation_monitor.service import AdaptationMonitor
 
 from adaptation_monitor.conf import (
@@ -24,6 +26,9 @@ class TestAdaptationMonitor(MockedServiceStreamTestCase):
         SERVICE_CMD_KEY: [],
     }
 
+    def prepare_mocked_stream_factory(self, mocked_dict):
+        self.stream_factory = ManyKeyConsumerMockedStreamFactory(mocked_dict=self.mocked_streams_dict)
+
     @patch('adaptation_monitor.service.AdaptationMonitor.process_action')
     def test_process_cmd_should_call_process_action(self, mocked_process_action):
         action = 'someAction'
@@ -39,4 +44,3 @@ class TestAdaptationMonitor(MockedServiceStreamTestCase):
         self.service.process_cmd()
         self.assertTrue(mocked_process_action.called)
         self.service.process_action.assert_called_once_with(action=action, event_data=event_data, json_msg=msg_tuple[1])
-

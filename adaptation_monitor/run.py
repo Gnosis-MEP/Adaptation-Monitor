@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from event_service_utils.streams.redis import RedisStreamFactory
+from adaptation_monitor.streams import RedisStreamFactory
 
 from adaptation_monitor.service import AdaptationMonitor
 
