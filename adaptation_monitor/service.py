@@ -74,13 +74,14 @@ class AdaptationMonitor(BaseTracerService):
         self.send_data_to_knowledge_manager(json_ld_entity, action='addEntity')
 
     def process_start_preprocessing_monitoring(self, event_data):
+        event_data['query_ids'] = [f'gnosis-mep:subscriber_query/{q}' for q in event_data['query_ids']]
+
         json_ld_entity = self.prepare_entity_to_knowledge_manager(
             event_data, namespace='buffer_stream', entity_id=event_data['buffer_stream_key']
         )
         json_ld_entity['@context'] = {
             'gnosis-mep:buffer_stream#query_ids': {'@type': '@id'},
         }
-        json_ld_entity['query_ids'] = [f'gnosis-mep:subscriber_query/{q}' for q in json_ld_entity['query_ids']]
 
         #     {
         #     "id": "abc-123abc-123abc-123abc-123abc-123abc-123",
