@@ -1,3 +1,4 @@
+import hashlib
 import threading
 
 from event_service_utils.logging.decorators import timer_logger
@@ -24,10 +25,12 @@ class AdaptationMonitor(BaseTracerService):
         self.data_validation_fields = ['id']
 
         self.client_manager_cmd_stream_key = 'cm-cmd'
+        self.preprocessor_cmd_stream_key = 'pp-cmd'
         self.knowledge_cmd_stream_key = 'adpk-cmd'
         self.monitored_stream_keys = [
             # client_manager_cmd_stream_key,
-            self.client_manager_cmd_stream_key
+            self.client_manager_cmd_stream_key,
+            self.preprocessor_cmd_stream_key
         ]
         self.monitored_streams = self.stream_factory.create(key=self.monitored_stream_keys, stype='manyKeyConsumer')
         self.knowledge_cmd_stream = self.stream_factory.create(key=self.knowledge_cmd_stream_key, stype='streamOnly')
@@ -53,7 +56,6 @@ class AdaptationMonitor(BaseTracerService):
         clean_event_data = event_data.copy()
         clean_event_data.pop('id', None)
         clean_event_data.pop('tracer', None)
-        # entity['entity_namespace'] = namespace
         base_namespace = 'gnosis-mep'
         entity_namespace = f'{base_namespace}:{namespace}'
         entity = {
@@ -66,9 +68,30 @@ class AdaptationMonitor(BaseTracerService):
         return entity
 
     def process_add_query_monitoring(self, event_data):
-        query_uid = f"{event_data['subscriber_id']}-{event_data['query_num']}"
+        query_uid = hashlib.md5(f"{event_data['subscriber_id']}_{event_data['query_num']}".encode('utf-8')).hexdigest()
         json_ld_entity = self.prepare_entity_to_knowledge_manager(
             event_data, namespace='subscriber_query', entity_id=query_uid)
+        self.send_data_to_knowledge_manager(json_ld_entity, action='addEntity')
+
+    def process_start_preprocessing_monitoring(self, event_data):
+        json_ld_entity = self.prepare_entity_to_knowledge_manager(
+            event_data, namespace='buffer_stream', entity_id=event_data['buffer_stream_key']
+        )
+        json_ld_entity['@context'] = {
+            'gnosis-mep:buffer_stream#query_ids': {'@type': '@id'},
+        }
+        json_ld_entity['query_ids'] = [f'gnosis-mep:subscriber_query/{q}' for q in json_ld_entity['query_ids']]
+
+        #     {
+        #     "id": "abc-123abc-123abc-123abc-123abc-123abc-123",
+        #     "action": "startPreprocessing",
+        #     "publisher_id": "44d7985a-e41e-4d02-a772-a8f7c1c69124",
+        #     "source": "rtmp://localhost/live/mystream",
+        #     "resolution": "640x480",
+        #     "fps": "30",
+        #     "buffer_stream_key": "buffer-stream-key",
+        #     "query_ids": ["query-id1", "query-id2"]
+        # }
         self.send_data_to_knowledge_manager(json_ld_entity, action='addEntity')
 
     def process_action(self, action, event_data, json_msg):
@@ -86,10 +109,13 @@ class AdaptationMonitor(BaseTracerService):
         self.logger.debug(f'Processing new monitoring event: {event_data}')
 
         stream_key = event_data.pop('stream_key')
-
         if stream_key == self.client_manager_cmd_stream_key:
             if event_data['action'] == 'addQuery':
                 self.process_add_query_monitoring(event_data)
+
+        if stream_key == self.preprocessor_cmd_stream_key:
+            if event_data['action'] == 'startPreprocessing':
+                self.process_start_preprocessing_monitoring(event_data)
 
     def process_monitoring(self):
         stream_sources_events = list(self.monitored_streams.read_stream_events_list(count=10))

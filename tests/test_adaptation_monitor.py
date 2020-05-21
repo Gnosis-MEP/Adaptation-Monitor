@@ -44,3 +44,42 @@ class TestAdaptationMonitor(MockedServiceStreamTestCase):
         self.service.process_cmd()
         self.assertTrue(mocked_process_action.called)
         self.service.process_action.assert_called_once_with(action=action, event_data=event_data, json_msg=msg_tuple[1])
+
+    @patch('adaptation_monitor.service.AdaptationMonitor.process_add_query_monitoring')
+    def test_process_action_should_process_add_query_monitoring(self, mocked_add_query_mon):
+        action = 'addQuery'
+        event_data = {
+            'id': '123',
+            'query': 'select object_detection from pub1 where (object1.label = car) within TUMBLING_COUNT_WINDOW(4) withconfidence >50',
+            'subscriber_id': '3',
+            'query_num': '123',
+            'action': action,
+            'stream_key': self.service.client_manager_cmd_stream_key
+        }
+        msg_tuple = prepare_event_msg_tuple(event_data)
+        json_msg = msg_tuple[1]
+        self.service.process_monitoring_event(event_data, json_msg)
+
+        self.assertTrue(mocked_add_query_mon.called)
+        self.service.process_add_query_monitoring.assert_called_once_with(event_data)
+
+    @patch('adaptation_monitor.service.AdaptationMonitor.process_start_preprocessing_monitoring')
+    def test_process_action_should_process_start_preprocessing_monitoring(self, mocked_start_pp_mon):
+        action = 'startPreprocessing'
+        event_data = {
+            "id": "abc-123abc-123abc-123abc-123abc-123abc-123",
+            "publisher_id": "44d7985a-e41e-4d02-a772-a8f7c1c69124",
+            "source": "rtmp://localhost/live/mystream",
+            "resolution": "640x480",
+            "fps": "30",
+            "buffer_stream_key": "buffer-stream-key",
+            "query_ids": ["query-id1", "query-id2"],
+            'action': action,
+            'stream_key': self.service.preprocessor_cmd_stream_key
+        }
+        msg_tuple = prepare_event_msg_tuple(event_data)
+        json_msg = msg_tuple[1]
+        self.service.process_monitoring_event(event_data, json_msg)
+
+        self.assertTrue(mocked_start_pp_mon.called)
+        self.service.process_start_preprocessing_monitoring.assert_called_once_with(event_data)
