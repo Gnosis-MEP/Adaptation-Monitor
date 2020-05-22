@@ -26,6 +26,7 @@ class AdaptationMonitor(BaseTracerService):
 
         self.client_manager_cmd_stream_key = 'cm-cmd'
         self.preprocessor_cmd_stream_key = 'pp-cmd'
+        self.analyser_cmd_stream_key = 'adpa-cmd'
         self.knowledge_cmd_stream_key = 'adpk-cmd'
         self.monitored_stream_keys = [
             # client_manager_cmd_stream_key,
@@ -34,6 +35,7 @@ class AdaptationMonitor(BaseTracerService):
         ]
         self.monitored_streams = self.stream_factory.create(key=self.monitored_stream_keys, stype='manyKeyConsumer')
         self.knowledge_cmd_stream = self.stream_factory.create(key=self.knowledge_cmd_stream_key, stype='streamOnly')
+        self.analyser_cmd_stream = self.stream_factory.create(key=self.analyser_cmd_stream_key, stype='streamOnly')
 
     @timer_logger
     def process_data_event(self, event_data, json_msg):
@@ -51,6 +53,17 @@ class AdaptationMonitor(BaseTracerService):
 
         self.logger.debug(f'Sending data "{new_event_data}" to K')
         self.write_event_with_trace(new_event_data, self.knowledge_cmd_stream)
+
+    def send_data_to_analyser(self, json_ld_entity, change_type):
+        new_event_data = {
+            'id': self.service_based_random_event_id(),
+            'entity': json_ld_entity,
+            'action': 'notifyChangedEntity',
+            'change_type': change_type
+        }
+
+        self.logger.debug(f'Sending data "{new_event_data}" to Analyser')
+        self.write_event_with_trace(new_event_data, self.analyser_cmd_stream)
 
     def prepare_entity_to_knowledge_manager(self, event_data, namespace, entity_id):
         clean_event_data = event_data.copy()
@@ -82,18 +95,10 @@ class AdaptationMonitor(BaseTracerService):
         json_ld_entity['@context'] = {
             'gnosis-mep:buffer_stream#query_ids': {'@type': '@id'},
         }
+        entity_action_change_type = 'addEntity'
+        self.send_data_to_knowledge_manager(json_ld_entity, action=entity_action_change_type)
 
-        #     {
-        #     "id": "abc-123abc-123abc-123abc-123abc-123abc-123",
-        #     "action": "startPreprocessing",
-        #     "publisher_id": "44d7985a-e41e-4d02-a772-a8f7c1c69124",
-        #     "source": "rtmp://localhost/live/mystream",
-        #     "resolution": "640x480",
-        #     "fps": "30",
-        #     "buffer_stream_key": "buffer-stream-key",
-        #     "query_ids": ["query-id1", "query-id2"]
-        # }
-        self.send_data_to_knowledge_manager(json_ld_entity, action='addEntity')
+        self.send_data_to_analyser(json_ld_entity, change_type=entity_action_change_type)
 
     def process_action(self, action, event_data, json_msg):
         if not super(AdaptationMonitor, self).process_action(action, event_data, json_msg):
