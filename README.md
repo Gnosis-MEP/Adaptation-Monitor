@@ -1,5 +1,5 @@
 # Adaptation Monitor
-Service responsible for the Monitoring aspect of the MAPE-K architecture for adaptation
+Service responsible for the Monitoring aspect of the MAPE-K architecture for adaptation.
 
 # Commands Stream
 ## Inputs
