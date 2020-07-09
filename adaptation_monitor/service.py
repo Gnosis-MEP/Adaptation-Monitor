@@ -6,6 +6,9 @@ import time
 from event_service_utils.logging.decorators import timer_logger
 from event_service_utils.services.tracer import BaseTracerService, tags, EVENT_ID_TAG
 from event_service_utils.tracing.jaeger import init_tracer
+from walrus.containers import make_python_attr
+
+from .streams import get_total_pending_cg_stream
 
 
 class AdaptationMonitor(BaseTracerService):
@@ -121,13 +124,8 @@ class AdaptationMonitor(BaseTracerService):
         bg_thread.daemon = True
         bg_thread.start()
 
-    @functools.lru_cache(maxsize=5)
-    def get_cached_stream_connection(self, stream_key):
-        return self.stream_factory.create(stream_key, stype='streamOnly')
-
-    def calculate_stream_len(self, stream_key):
-        stream = self.get_cached_stream_connection(stream_key)
-        return stream.single_io_stream.length()
+    def calculate_stream_pending_len(self, stream_key):
+        return get_total_pending_cg_stream(self.stream_factory.redis_db, stream_key)
 
     def process_stream_size_monitoring(self, event_data):
         services = event_data['services']
@@ -138,11 +136,12 @@ class AdaptationMonitor(BaseTracerService):
             for worker in workers:
                 stream_key = worker['stream_key']
                 queue_limit = worker['queue_limit']
-                queue_size = self.calculate_stream_len(stream_key)
+                queue_size = self.calculate_stream_pending_len(stream_key)
                 # queue_size = 10
                 queue_space = queue_limit - queue_size
                 queue_space_percent = queue_space / queue_limit
                 worker['queue_space'] = queue_space
+                # worker['queue_size'] = queue_size
                 worker['queue_space_percent'] = queue_space_percent
                 json_ld_entity = self.prepare_entity_to_knowledge_manager(
                     worker, namespace='service_worker', entity_id=stream_key
@@ -213,6 +212,12 @@ class AdaptationMonitor(BaseTracerService):
                 except Exception as e:
                     self.logger.error(f'Error processing {json_msg}:')
                     self.logger.exception(e)
+                finally:
+                    # we are always ack the events, even if they fail.
+                    # in a better world we would actually do some treatments to
+                    # see if the event should be re-processed or not, before ack.
+                    cg_stream = getattr(self.monitored_streams.input_consumer_group, make_python_attr(stream_key))
+                    cg_stream.ack(event_id)
 
     def process_monitoring_event_wrapper(self, event_data, json_msg):
         self.event_trace_for_method_with_event_data(

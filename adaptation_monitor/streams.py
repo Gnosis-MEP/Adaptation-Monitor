@@ -1,3 +1,4 @@
+import redis
 from event_service_utils.streams.redis import RedisStreamFactory as BaseRedisFactory
 
 
@@ -29,3 +30,13 @@ class RedisStreamFactory(BaseRedisFactory):
         elif stype == 'manyKeyConsumer':
             return ManyKeyConsumerGroup(
                 redis_db=self.redis_db, keys=key, max_stream_length=self.max_stream_length, block=self.block)
+
+
+def get_total_pending_cg_stream(redis_db, stream_key):
+    cg_name = f'cg-{stream_key}'
+    try:
+        total_pending = redis_db.xpending(stream_key, cg_name)['pending']
+    except redis.ResponseError:
+        total_pending = 0
+
+    return total_pending
