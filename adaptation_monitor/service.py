@@ -180,9 +180,6 @@ class AdaptationMonitor(BaseTracerService):
 
         if action == 'repeatMonitorStreamsSize':
             self.monitor_stream_size_and_repeat(event_data)
-        # elif action == 'otherAction':
-        #     # do some other action
-        #     pass
 
     @timer_logger
     def process_monitoring_event(self, event_data, json_msg):
