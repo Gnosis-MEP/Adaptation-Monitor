@@ -33,10 +33,33 @@ class RedisStreamFactory(BaseRedisFactory):
 
 
 def get_total_pending_cg_stream(redis_db, stream_key):
+    bad_return_value = redis_db.xlen(stream_key)
     cg_name = f'cg-{stream_key}'
     try:
-        total_pending = redis_db.xpending(stream_key, cg_name)['pending']
+        cgroups_info = redis_db.xinfo_groups(stream_key)
+        if not cgroups_info:
+            return bad_return_value
+
+        cgroup = None
+        for cg in cgroups_info:
+            if cg['name'] == cg_name.encode('utf-8'):
+                cgroup = cg
+                break
+
+        if not cgroup:
+            return bad_return_value
+
+        last_delivered_id = cgroup['last-delivered-id']
+
+        if last_delivered_id is None:
+            return bad_return_value
+
+        not_consumed_stream_events_list = redis_db.xread({stream_key: last_delivered_id})
+        if len(not_consumed_stream_events_list) == 0:
+            return 0
+
+        return len(not_consumed_stream_events_list[0][1])
     except redis.ResponseError:
-        total_pending = 0
+        total_pending = bad_return_value
 
     return total_pending

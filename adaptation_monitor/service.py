@@ -127,6 +127,14 @@ class AdaptationMonitor(BaseTracerService):
     def calculate_stream_pending_len(self, stream_key):
         return get_total_pending_cg_stream(self.stream_factory.redis_db, stream_key)
 
+    # @functools.lru_cache(maxsize=5)
+    # def get_cached_stream_connection(self, stream_key):
+    #     return self.stream_factory.create(stream_key, stype='streamOnly')
+
+    # def calculate_stream_len(self, stream_key):
+    #     stream = self.get_cached_stream_connection(stream_key)
+    #     return stream.single_io_stream.length()
+
     def process_stream_size_monitoring(self, event_data):
         services = event_data['services']
         service_monitoring_entities = []
