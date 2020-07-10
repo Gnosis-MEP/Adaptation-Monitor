@@ -62,11 +62,11 @@ class AdaptationMonitor(BaseTracerService):
         self.logger.debug(f'Sending data "{new_event_data}" to K')
         self.write_event_with_trace(new_event_data, self.knowledge_cmd_stream)
 
-    def send_data_to_analyser(self, json_ld_entity, change_type):
+    def send_data_to_analyser(self, action, json_ld_entity, change_type):
         new_event_data = {
             'id': self.service_based_random_event_id(),
             'entity': json_ld_entity,
-            'action': 'notifyChangedEntity',
+            'action': action,
             'change_type': change_type
         }
 
@@ -108,7 +108,7 @@ class AdaptationMonitor(BaseTracerService):
         entity_action_change_type = 'addEntity'
         self.send_data_to_knowledge_manager(json_ld_entity, action=entity_action_change_type)
 
-        self.send_data_to_analyser(json_ld_entity, change_type=entity_action_change_type)
+        self.send_data_to_analyser(json_ld_entity, action='notifyChangedEntity', change_type=entity_action_change_type)
 
     def _repeat_action_after_time(self, event_data, wait_time):
         self.logger.debug(f'Waiting for {wait_time}s before repeating action...')
@@ -166,7 +166,10 @@ class AdaptationMonitor(BaseTracerService):
         json_ld_entity_graph = {
             '@graph': service_monitoring_entities
         }
-        self.send_data_to_knowledge_manager(json_ld_entity_graph, action='updateEntity', replaces=replaces)
+        entity_action_change_type = 'updateEntity'
+        self.send_data_to_knowledge_manager(json_ld_entity_graph, action=entity_action_change_type, replaces=replaces)
+        self.send_data_to_analyser(
+            json_ld_entity_graph, action='notifyChangedEntityGraph', change_type=entity_action_change_type)
 
     def monitor_stream_size_and_repeat(self, event_data):
         self.process_stream_size_monitoring(event_data)
