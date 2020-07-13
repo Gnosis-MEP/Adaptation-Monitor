@@ -62,7 +62,7 @@ class AdaptationMonitor(BaseTracerService):
         self.logger.debug(f'Sending data "{new_event_data}" to K')
         self.write_event_with_trace(new_event_data, self.knowledge_cmd_stream)
 
-    def send_data_to_analyser(self, action, json_ld_entity, change_type):
+    def send_data_to_analyser(self, json_ld_entity, action, change_type):
         new_event_data = {
             'id': self.service_based_random_event_id(),
             'entity': json_ld_entity,
