@@ -257,10 +257,12 @@ class AdaptationMonitor(BaseTracerService):
                 'ObjectDetection': {
                     'workers': [
                         {
+                            'service_type': 'ObjectDetection',
                             'stream_key': 'object-detection-ssd-gpu-data',
                             'queue_limit': 100
                         },
                         {
+                            'service_type': 'ObjectDetection',
                             'stream_key': 'object-detection-ssd-data',
                             'queue_limit': 100
                         }
@@ -269,6 +271,7 @@ class AdaptationMonitor(BaseTracerService):
                 'ColorDetection': {
                     'workers': [
                         {
+                            'service_type': 'ColorDetection',
                             'stream_key': 'color-detection-data',
                             'queue_limit': 100
                         }
