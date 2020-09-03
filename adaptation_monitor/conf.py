@@ -12,7 +12,8 @@ TRACER_REPORTING_HOST = config('TRACER_REPORTING_HOST', default='localhost')
 TRACER_REPORTING_PORT = config('TRACER_REPORTING_PORT', default='6831')
 
 MOCKED_WORKERS_ENERGY_USAGE_DICT = config('MOCKED_WORKERS_ENERGY_USAGE_DICT', cast=lambda v: dict([
-                                          (m.split('/')[0], float(m.split('/')[1])) for m in v.split(',')]),
+                                          (m.split('/')[0], float(m.split('/')[1])) for m in v.split(',')])
+                                          if v != "" else {},
                                           default="object-detection-ssd-gpu-data/163.8,object-detection-ssd-data/188.0")
 
 SERVICE_STREAM_KEY = config('SERVICE_STREAM_KEY')
