@@ -253,43 +253,8 @@ class AdaptationMonitor(BaseTracerService):
             'id': self.service_based_random_event_id(),
             'action': 'repeatMonitorStreamsSize',
             'repeat_after_time': 1,
-            'services': {
-                'ObjectDetection': {
-                    'workers': [
-                        {
-                            'service_type': 'ObjectDetection',
-                            'stream_key': 'object-detection-ssd-gpu-data',
-                            'queue_limit': 100,
-                            # will this need to change to a separate resources entity?
-                            # 'energy_consumption': 163.8,
-                        },
-                        {
-                            'service_type': 'ObjectDetection',
-                            'stream_key': 'object-detection-ssd-data',
-                            'queue_limit': 100,
-                            # will this need to change to a separate resources entity?
-                            # 'energy_consumption': 188.0,
-                        }
-                    ]
-                },
-                'ColorDetection': {
-                    'workers': [
-                        {
-                            'service_type': 'ColorDetection',
-                            'stream_key': 'color-detection-data',
-                            'queue_limit': 100,
-                            # will this need to change to a separate resources entity?
-                        }
-                    ]
-                }
-            }
+            'services': MOCKED_WORKERS_ENERGY_USAGE_DICT
         }
-
-        workers = event_data['services']['ObjectDetection']['workers']
-        for worker in workers:
-            worker_key = worker['stream_key']
-            energy_consumption = MOCKED_WORKERS_ENERGY_USAGE_DICT.get(worker_key, 1000)
-            worker['energy_consumption'] = energy_consumption
 
         self.service_cmd.write_events(self.default_event_serializer(event_data))
 
