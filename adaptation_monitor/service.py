@@ -29,19 +29,30 @@ class AdaptationMonitor(BaseTracerService):
         self.cmd_validation_fields = ['id', 'action']
         self.data_validation_fields = ['id']
 
-        self.client_manager_cmd_stream_key = 'cm-cmd'
+        self.event_dispatcher_cmd_stream_key = 'ed-cmd'
         self.preprocessor_cmd_stream_key = 'pp-cmd'
         self.analyser_cmd_stream_key = 'adpa-cmd'
         self.knowledge_cmd_stream_key = 'adpk-cmd'
         self.monitored_stream_keys = [
             # client_manager_cmd_stream_key,
-            self.client_manager_cmd_stream_key,
+            # self.event_dispatcher_cmd_stream_key,
             self.preprocessor_cmd_stream_key
         ]
         self.monitored_streams = self.stream_factory.create(key=self.monitored_stream_keys, stype='manyKeyConsumer')
         self.knowledge_cmd_stream = self.stream_factory.create(key=self.knowledge_cmd_stream_key, stype='streamOnly')
         self.analyser_cmd_stream = self.stream_factory.create(key=self.analyser_cmd_stream_key, stype='streamOnly')
         self.base_namespace = 'gnosis-mep'
+
+    # def _query_preprocessing_race_condition_workaround(self, event_data, event_type):
+    #     """This is a ugly workaround for the fact that now the query event can be
+    #     reived after the preprocessing event.
+    #     In this case it will hold in the preprocessing event and only send it once a query event is received
+    #     """
+    #     if event_data.get('action', '') == 'startPreprocessing':
+    #         self.last_preprocessing_event = event_data
+    #     elif event_data.get('action', '') == 'updateControlFlow':
+    #         pass
+    #     self.last_preprocessing_event = None
 
     @timer_logger
     def process_data_event(self, event_data, json_msg):
@@ -90,11 +101,14 @@ class AdaptationMonitor(BaseTracerService):
         })
         return entity
 
-    def process_add_query_monitoring(self, event_data):
-        query_uid = hashlib.md5(f"{event_data['subscriber_id']}_{event_data['query_num']}".encode('utf-8')).hexdigest()
+    def process_update_controlflow_monitoring(self, event_data):
         json_ld_entity = self.prepare_entity_to_knowledge_manager(
-            event_data, namespace='subscriber_query', entity_id=query_uid)
-        self.send_data_to_knowledge_manager(json_ld_entity, action='addEntity')
+            event_data, namespace='subscriber_query', entity_id=event_data['query_id'])
+
+        entity_action_change_type = 'addEntity'
+
+        self.send_data_to_knowledge_manager(json_ld_entity, action=entity_action_change_type)
+        self.send_data_to_analyser(json_ld_entity, action='notifyChangedEntity', change_type=entity_action_change_type)
 
     def process_start_preprocessing_monitoring(self, event_data):
         event_data['query_ids'] = [f'gnosis-mep:subscriber_query/{q}' for q in event_data['query_ids']]
@@ -184,6 +198,13 @@ class AdaptationMonitor(BaseTracerService):
         if action == 'repeatMonitorStreamsSize':
             self.monitor_stream_size_and_repeat(event_data)
 
+        # This is very bad in here, but since we'll probably change the overall behaviour of the system
+        # and having this sent here would be the simplest to change later, we are doing it.
+        # in the current implementation it makes more sense to have the actions that the monitor receives being only
+        # monitoring actions, instead of the monitored events it self.
+        if event_data['action'] == 'updateControlFlow':
+            self.process_update_controlflow_monitoring(event_data)
+
     @timer_logger
     def process_monitoring_event(self, event_data, json_msg):
         if not self.event_validation_fields(event_data, self.cmd_validation_fields):
@@ -192,10 +213,6 @@ class AdaptationMonitor(BaseTracerService):
         self.logger.debug(f'Processing new monitoring event: {event_data}')
 
         stream_key = event_data.pop('stream_key')
-        if stream_key == self.client_manager_cmd_stream_key:
-            if event_data['action'] == 'addQuery':
-                self.process_add_query_monitoring(event_data)
-
         if stream_key == self.preprocessor_cmd_stream_key:
             if event_data['action'] == 'startPreprocessing':
                 self.process_start_preprocessing_monitoring(event_data)
@@ -267,8 +284,8 @@ class AdaptationMonitor(BaseTracerService):
         self.data_thread.start()
         self.monitoring_thread.start()
 
-        if len(MOCKED_WORKERS_ENERGY_USAGE_DICT) != 0:
-            self.mocked_services_anouncement_for_stream_check()
+        # if len(MOCKED_WORKERS_ENERGY_USAGE_DICT) != 0:
+        #     self.mocked_services_anouncement_for_stream_check()
         self.cmd_thread.join()
         self.data_thread.join()
         self.monitoring_thread.join()

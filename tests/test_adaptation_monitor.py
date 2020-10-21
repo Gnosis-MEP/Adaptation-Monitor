@@ -45,23 +45,31 @@ class TestAdaptationMonitor(MockedServiceStreamTestCase):
         self.assertTrue(mocked_process_action.called)
         self.service.process_action.assert_called_once_with(action=action, event_data=event_data, json_msg=msg_tuple[1])
 
-    @patch('adaptation_monitor.service.AdaptationMonitor.process_add_query_monitoring')
-    def test_process_action_should_process_add_query_monitoring(self, mocked_add_query_mon):
-        action = 'addQuery'
+    @patch('adaptation_monitor.service.AdaptationMonitor.process_update_controlflow_monitoring')
+    def test_process_action_should_process_add_query_monitoring(self, mocked_up_ctrlflow_mon):
+        action = 'updateControlFlow'
         event_data = {
             'id': '123',
-            'query': 'select object_detection from pub1 where (object1.label = car) within TUMBLING_COUNT_WINDOW(4) withconfidence >50',
-            'subscriber_id': '3',
-            'query_num': '123',
+            "control_flow": {
+                "publisher 1": [
+                    ["object-detection-data"],
+                    ["wa-data"]
+                ]
+            },
+            "query_id": "ab35e84a215f0f711ed629c2abb9efa0",
+            "publisher_id": "publisher 1",
+            "destination_id": [
+                "object-detection-data",
+                "wa-data"
+            ],
             'action': action,
-            'stream_key': self.service.client_manager_cmd_stream_key
         }
         msg_tuple = prepare_event_msg_tuple(event_data)
         json_msg = msg_tuple[1]
-        self.service.process_monitoring_event(event_data, json_msg)
+        self.service.process_action(event_data['action'], event_data, json_msg)
 
-        self.assertTrue(mocked_add_query_mon.called)
-        self.service.process_add_query_monitoring.assert_called_once_with(event_data)
+        self.assertTrue(mocked_up_ctrlflow_mon.called)
+        self.service.process_update_controlflow_monitoring.assert_called_once_with(event_data)
 
     @patch('adaptation_monitor.service.AdaptationMonitor.process_start_preprocessing_monitoring')
     def test_process_action_should_process_start_preprocessing_monitoring(self, mocked_start_pp_mon):
