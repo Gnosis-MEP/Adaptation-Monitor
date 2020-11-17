@@ -284,8 +284,8 @@ class AdaptationMonitor(BaseTracerService):
         self.data_thread.start()
         self.monitoring_thread.start()
 
-        # if len(MOCKED_WORKERS_ENERGY_USAGE_DICT) != 0:
-        #     self.mocked_services_anouncement_for_stream_check()
+        if len(MOCKED_WORKERS_ENERGY_USAGE_DICT) != 0:
+            self.mocked_services_anouncement_for_stream_check()
         self.cmd_thread.join()
         self.data_thread.join()
         self.monitoring_thread.join()
