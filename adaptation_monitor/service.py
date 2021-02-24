@@ -29,19 +29,21 @@ class AdaptationMonitor(BaseTracerService):
         self.cmd_validation_fields = ['id', 'action']
         self.data_validation_fields = ['id']
 
-        self.event_dispatcher_cmd_stream_key = 'ed-cmd'
         self.preprocessor_cmd_stream_key = 'pp-cmd'
+        self.service_registry_cmd_key = 'sr-cmd'
+
         self.analyser_cmd_stream_key = 'adpa-cmd'
         self.knowledge_cmd_stream_key = 'adpk-cmd'
         self.monitored_stream_keys = [
-            # client_manager_cmd_stream_key,
-            # self.event_dispatcher_cmd_stream_key,
-            self.preprocessor_cmd_stream_key
+            self.preprocessor_cmd_stream_key,
+            self.service_registry_cmd_key
         ]
         self.monitored_streams = self.stream_factory.create(key=self.monitored_stream_keys, stype='manyKeyConsumer')
         self.knowledge_cmd_stream = self.stream_factory.create(key=self.knowledge_cmd_stream_key, stype='streamOnly')
         self.analyser_cmd_stream = self.stream_factory.create(key=self.analyser_cmd_stream_key, stype='streamOnly')
         self.base_namespace = 'gnosis-mep'
+
+        self.services_to_monitor = {}
 
     # def _query_preprocessing_race_condition_workaround(self, event_data, event_type):
     #     """This is a ugly workaround for the fact that now the query event can be
@@ -101,12 +103,31 @@ class AdaptationMonitor(BaseTracerService):
         })
         return entity
 
+    def _create_query_qos_policies_entity(self, query_id, qos_policies):
+        qos_entity_id = f'{query_id}-qos_policies'
+        qos_policies['query_id'] = f'gnosis-mep:subscriber_query/{query_id}'
+
+        qos_json_ld_entity = self.prepare_entity_to_knowledge_manager(
+            qos_policies, namespace='query_qos_policy', entity_id=qos_entity_id)
+        return qos_json_ld_entity
+
     def process_update_controlflow_monitoring(self, event_data):
+        # qos_policies = event_data.pop('qos_policies', {})
+
+        # qos_json_ld_entity = self._create_query_qos_policies_entity(event_data['query_id'], qos_policies)
+        qos_policies = event_data.pop('qos_policies', {})
+        qos_policies = [[f"{k}:{v}"] for k, v in qos_policies.items()]
+        event_data['qos_policies'] = qos_policies
+
         json_ld_entity = self.prepare_entity_to_knowledge_manager(
             event_data, namespace='subscriber_query', entity_id=event_data['query_id'])
 
         entity_action_change_type = 'addEntity'
 
+        # graph_entities = [qos_json_ld_entity, json_ld_entity, ]
+        # json_ld_entity_graph = {
+        #     '@graph': service_monitoring_entities
+        # }
         self.send_data_to_knowledge_manager(json_ld_entity, action=entity_action_change_type)
         self.send_data_to_analyser(json_ld_entity, action='notifyChangedEntity', change_type=entity_action_change_type)
 
@@ -123,6 +144,13 @@ class AdaptationMonitor(BaseTracerService):
         self.send_data_to_knowledge_manager(json_ld_entity, action=entity_action_change_type)
 
         self.send_data_to_analyser(json_ld_entity, action='notifyChangedEntity', change_type=entity_action_change_type)
+
+    def process_new_service_worker_monitoring(self, event_data):
+        worker = event_data['worker']
+        service_type = worker['service_type']
+        stream_key = worker['stream_key']
+        service_dict = self.services_to_monitor.setdefault(service_type, {'workers': {}})
+        service_dict['workers'][stream_key] = worker
 
     def _repeat_action_after_time(self, event_data, wait_time):
         self.logger.debug(f'Waiting for {wait_time}s before repeating action...')
@@ -149,14 +177,12 @@ class AdaptationMonitor(BaseTracerService):
     #     stream = self.get_cached_stream_connection(stream_key)
     #     return stream.single_io_stream.length()
 
-    def process_stream_size_monitoring(self, event_data):
-        services = event_data['services']
+    def process_stream_size_monitoring(self):
         service_monitoring_entities = []
         replaces = {}
-        for service_type, service in services.items():
+        for service_type, service in self.services_to_monitor.items():
             workers = service['workers']
-            for worker in workers:
-                stream_key = worker['stream_key']
+            for stream_key, worker in workers.items():
                 queue_limit = worker['queue_limit']
                 queue_size = self.calculate_stream_pending_len(stream_key)
                 # queue_size = 10
@@ -176,6 +202,8 @@ class AdaptationMonitor(BaseTracerService):
                     self.get_namespace_attribute(json_ld_entity['@type'], 'queue_space_percent'),
                 ]
                 service_monitoring_entities.append(json_ld_entity)
+        if service_monitoring_entities == []:
+            return
 
         json_ld_entity_graph = {
             '@graph': service_monitoring_entities
@@ -186,7 +214,7 @@ class AdaptationMonitor(BaseTracerService):
             json_ld_entity_graph, action='notifyChangedEntityGraph', change_type=entity_action_change_type)
 
     def monitor_stream_size_and_repeat(self, event_data):
-        self.process_stream_size_monitoring(event_data)
+        self.process_stream_size_monitoring()
         repeat_after_time = event_data['repeat_after_time']
         self.background_schedule_repeat_action(event_data, repeat_after_time)
 
@@ -216,6 +244,9 @@ class AdaptationMonitor(BaseTracerService):
         if stream_key == self.preprocessor_cmd_stream_key:
             if event_data['action'] == 'startPreprocessing':
                 self.process_start_preprocessing_monitoring(event_data)
+        elif stream_key == self.service_registry_cmd_key:
+            if event_data['action'] == 'addServiceWorker':
+                self.process_new_service_worker_monitoring(event_data)
 
     def process_monitoring(self):
         stream_sources_events = list(self.monitored_streams.read_stream_events_list(count=10))
@@ -263,14 +294,12 @@ class AdaptationMonitor(BaseTracerService):
         super(AdaptationMonitor, self).log_state()
         self.logger.info(f'My service name is: {self.name}')
 
-    def mocked_services_anouncement_for_stream_check(self):
-        "Using this while we don't have a discovery service that will anounce this info"
+    def repeat_services_monitoring_for_stream_check(self):
         time.sleep(1)
         event_data = {
             'id': self.service_based_random_event_id(),
             'action': 'repeatMonitorStreamsSize',
             'repeat_after_time': 1,
-            'services': MOCKED_WORKERS_ENERGY_USAGE_DICT
         }
 
         self.service_cmd.write_events(self.default_event_serializer(event_data))
@@ -284,8 +313,7 @@ class AdaptationMonitor(BaseTracerService):
         self.data_thread.start()
         self.monitoring_thread.start()
 
-        if len(MOCKED_WORKERS_ENERGY_USAGE_DICT) != 0:
-            self.mocked_services_anouncement_for_stream_check()
+        self.repeat_services_monitoring_for_stream_check()
         self.cmd_thread.join()
         self.data_thread.join()
         self.monitoring_thread.join()

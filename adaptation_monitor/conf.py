@@ -18,7 +18,7 @@ def string_to_dict_cast(str_value):
     final_dict = {}
     for service_str in str_value.split(';'):
         service_type, workers_str_list = service_str.split(':')
-        workers = []
+        workers = {}
         for worker_str in workers_str_list.split(','):
             stream_key, queue_limit, energy_consumption = worker_str.split('/')
             worker_dict = {
@@ -27,7 +27,7 @@ def string_to_dict_cast(str_value):
                 'queue_limit': int(queue_limit),
                 'energy_consumption': float(energy_consumption),
             }
-            workers.append(worker_dict)
+            workers[stream_key] = worker_dict
         final_dict[service_type] = {
             'workers': workers
         }
