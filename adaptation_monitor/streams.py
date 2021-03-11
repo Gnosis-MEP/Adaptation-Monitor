@@ -65,16 +65,24 @@ def get_total_pending_cg_stream(redis_db, stream_key):
     return total_pending
 
 
-COUNT_STREAM_WITH_RANGE_LUCA_SCRIPT = """
+COUNT_STREAM_WITH_RANGE_LUA_SCRIPT = """
 local T = redis.call('XRANGE', KEYS[1], ARGV[1], ARGV[2])
 local count = 0
-for _ in pairs(T) do count = count + 1 end
-return count
+local first
+for i, val in pairs(T) do
+ count = count + 1
+end
+if count == 0 then
+    first = "-"
+else
+    first = T[1][1]
+end
+return {count, first}
 """
 
 
 def register_lua_script(redis_db):
-    return redis_db.register_script(COUNT_STREAM_WITH_RANGE_LUCA_SCRIPT)
+    return redis_db.register_script(COUNT_STREAM_WITH_RANGE_LUA_SCRIPT)
 
 
 def get_total_pending_cg_stream_with_lua(redis_db, lua_script, stream_key):
@@ -99,7 +107,9 @@ def get_total_pending_cg_stream_with_lua(redis_db, lua_script, stream_key):
         if last_delivered_id is None:
             return bad_return_value
 
-        not_consumed_events_count = lua_script(keys=[stream_key], args=[last_delivered_id, '+'])
+        not_consumed_events_count, first_counted = lua_script(keys=[stream_key], args=[last_delivered_id, '+'])
+        if not_consumed_events_count > 0 and last_delivered_id == first_counted:
+            not_consumed_events_count -= 1
 
         return not_consumed_events_count
     except redis.ResponseError:

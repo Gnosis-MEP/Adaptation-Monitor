@@ -196,16 +196,18 @@ class AdaptationMonitor(BaseTracerService):
                 # queue_size = 10
                 queue_space = queue_limit - queue_size
                 queue_space_percent = queue_space / queue_limit
+                worker['queue_size'] = queue_size
                 worker['queue_space'] = queue_space
                 # worker['queue_size'] = queue_size
                 worker['queue_space_percent'] = queue_space_percent
                 json_ld_entity = self.prepare_entity_to_knowledge_manager(
                     worker, namespace='service_worker', entity_id=stream_key
                 )
-                # we want to replace the queue_space and percent values
+                # we want to replace the queue_size queue_space and percent values
                 # since they should be different and we don't want to have a list of values
                 # for this attribute
                 replaces[json_ld_entity['@id']] = [
+                    self.get_namespace_attribute(json_ld_entity['@type'], 'queue_size'),
                     self.get_namespace_attribute(json_ld_entity['@type'], 'queue_space'),
                     self.get_namespace_attribute(json_ld_entity['@type'], 'queue_space_percent'),
                 ]
