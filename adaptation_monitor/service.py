@@ -7,8 +7,7 @@ from event_service_utils.services.tracer import BaseTracerService, tags, EVENT_I
 from event_service_utils.tracing.jaeger import init_tracer
 from walrus.containers import make_python_attr
 
-from .streams import get_total_pending_cg_stream
-from .conf import MOCKED_WORKERS_ENERGY_USAGE_DICT
+from .streams import get_total_pending_cg_stream_with_lua, register_lua_script
 
 
 class AdaptationMonitor(BaseTracerService):
@@ -42,6 +41,7 @@ class AdaptationMonitor(BaseTracerService):
         self.knowledge_cmd_stream = self.stream_factory.create(key=self.knowledge_cmd_stream_key, stype='streamOnly')
         self.analyser_cmd_stream = self.stream_factory.create(key=self.analyser_cmd_stream_key, stype='streamOnly')
         self.base_namespace = 'gnosis-mep'
+        self.count_stream_size_xrange_script = None
 
         self.services_to_monitor = {}
 
@@ -166,8 +166,16 @@ class AdaptationMonitor(BaseTracerService):
         bg_thread.daemon = True
         bg_thread.start()
 
+    def get_count_stream_size_xrange_script(self):
+        if self.count_stream_size_xrange_script is None:
+            self.count_stream_size_xrange_script = register_lua_script(self.stream_factory.redis_db)
+        return self.count_stream_size_xrange_script
+
     def calculate_stream_pending_len(self, stream_key):
-        return get_total_pending_cg_stream(self.stream_factory.redis_db, stream_key)
+        lua_script = self.get_count_stream_size_xrange_script()
+        return get_total_pending_cg_stream_with_lua(
+            self.stream_factory.redis_db, lua_script, stream_key
+        )
 
     # @functools.lru_cache(maxsize=5)
     # def get_cached_stream_connection(self, stream_key):
