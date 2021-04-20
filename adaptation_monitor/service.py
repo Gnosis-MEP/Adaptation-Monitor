@@ -223,9 +223,19 @@ class AdaptationMonitor(BaseTracerService):
         self.send_data_to_analyser(
             json_ld_entity_graph, action='notifyChangedEntityGraph', change_type=entity_action_change_type)
 
+    def process_stream_size_monitoring_retry_once_if_exception(self):
+        try:
+            self.process_stream_size_monitoring()
+        except:
+            time.sleep(0.05)
+            self.process_stream_size_monitoring()
+
     def monitor_stream_size_and_repeat(self, event_data):
-        self.process_stream_size_monitoring()
         repeat_after_time = event_data['repeat_after_time']
+        try:
+            self.process_stream_size_monitoring_retry_once_if_exception()
+        except Exception as e:
+            self.logger.exception(e)
         self.background_schedule_repeat_action(event_data, repeat_after_time)
 
     @timer_logger
