@@ -37,7 +37,9 @@ class AdaptationMonitor(BaseEventDrivenCMDService):
         self.services_to_monitor = {}
 
     def publish_service_workers_stream_monitored(self, service_workers):
-        new_event_data = service_workers
+        new_event_data = {
+            'service_workers': service_workers
+        }
         new_event_data['id'] = self.service_based_random_event_id()
         self.publish_event_type_to_stream(event_type='ServiceWorkersStreamMonitored', new_event_data=new_event_data)
 
@@ -92,6 +94,8 @@ class AdaptationMonitor(BaseEventDrivenCMDService):
                 worker['queue_limit'] = queue_limit
                 worker['queue_space'] = queue_space
                 worker['queue_space_percent'] = queue_space_percent
+            total_number_workers = len(workers.keys())
+            service['total_number_workers'] = total_number_workers
 
         # don't publish empty dict more than once
         if len(service_workers.keys()) == 0:

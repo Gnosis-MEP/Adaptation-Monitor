@@ -31,6 +31,23 @@ def main():
                     'service_type': 'ObjectDetection',
                     'stream_key': 'objworker-key',
                     'queue_limit': 100,
+                    'throughput': 10,
+                    'accuracy': 0.1,
+                    'energy_consumption': 100,
+                }
+            }
+        )
+    )
+    addworker_cmd.write_events(
+        new_msg(
+            {
+                'worker': {
+                    'service_type': 'ObjectDetection',
+                    'stream_key': 'objworker-key2',
+                    'queue_limit': 100,
+                    'throughput': 1,
+                    'accuracy': 0.9,
+                    'energy_consumption': 10,
                 }
             }
         )
@@ -42,13 +59,15 @@ def main():
                     'service_type': 'ColorDetection',
                     'stream_key': 'clrworker-key',
                     'queue_limit': 100,
+                    'throughput': 1,
+                    'accuracy': 0.9,
+                    'energy_consumption': 10,
                 }
             }
         )
     )
-    import ipdb; ipdb.set_trace()
 
-    repeat_cmd = stream_factory.create(LISTEN_EVENT_TYPE_REPEAT_MONITOR_STREAMS_SIZE_REQUESTED, stype='streamOnly')
+    # repeat_cmd = stream_factory.create(LISTEN_EVENT_TYPE_REPEAT_MONITOR_STREAMS_SIZE_REQUESTED, stype='streamOnly')
 
     # repeat_cmd.write_events(
     #     new_msg(
@@ -79,15 +98,27 @@ def main():
     #         }
     #     )
     # )
+
+    import ipdb; ipdb.set_trace()
     worker_stream = stream_factory.create('objworker-key', stype='streamOnly')
 
-    worker_stream.write_events(
-        new_msg(
-            {
-                'msg': 'a'
-            }
+    for i in range(10):
+        worker_stream.write_events(
+            new_msg(
+                {
+                    'msg': 'a'
+                }
+            )
         )
-    )
+    import ipdb; ipdb.set_trace()
+    for i in range(100):
+        worker_stream.write_events(
+            new_msg(
+                {
+                    'msg': 'a'
+                }
+            )
+        )
 
 if __name__ == '__main__':
     main()
