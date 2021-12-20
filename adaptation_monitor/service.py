@@ -48,6 +48,10 @@ class AdaptationMonitor(BaseEventDrivenCMDService):
         service_dict['workers'][stream_key] = worker
 
     def _repeat_event_type_after_time(self, event_type, event_data, wait_time):
+        if wait_time < 0:
+            self.logger.debug(f'Will not repeat action.')
+            return
+
         self.logger.debug(f'Waiting for {wait_time}s before repeating action...')
         time.sleep(wait_time)
 
