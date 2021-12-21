@@ -68,37 +68,9 @@ def main():
     #     )
     # )
 
-    # repeat_cmd = stream_factory.create(LISTEN_EVENT_TYPE_REPEAT_MONITOR_STREAMS_SIZE_REQUESTED, stype='streamOnly')
+    repeat_cmd = stream_factory.create(LISTEN_EVENT_TYPE_REPEAT_MONITOR_STREAMS_SIZE_REQUESTED, stype='streamOnly')
 
-    # repeat_cmd.write_events(
-    #     new_msg(
-    #         {
-    #             'repeat_after_time': 1,
-    #             # 'services': {
-    #             #     'ObjectDetection': {
-    #             #         'workers': [
-    #             #             {
-    #             #                 'stream_key': 'object-detection-ssd-gpu-data',
-    #             #                 'queue_limit': 100
-    #             #             },
-    #             #             {
-    #             #                 'stream_key': 'object-detection-ssd-data',
-    #             #                 'queue_limit': 100
-    #             #             }
-    #             #         ]
-    #             #     },
-    #             #     'ColorDetection': {
-    #             #         'workers': [
-    #             #             {
-    #             #                 'stream_key': 'color-detection-data',
-    #             #                 'queue_limit': 100
-    #             #             }
-    #             #         ]
-    #             #     }
-    #             # }
-    #         }
-    #     )
-    # )
+    # repeat_cmd.write_events(new_msg({'repeat_after_time': -1}))
 
     import ipdb; ipdb.set_trace()
     # events = workermon_stream.read_events()
