@@ -12,6 +12,7 @@ variables:
   PUB_EVENT_TYPE_REPEAT_MONITOR_STREAMS_SIZE_REQUESTED: RepeatMonitorStreamsSizeRequested
   PUB_EVENT_TYPE_SERVICE_WORKERS_STREAM_MONITORED: ServiceWorkersStreamMonitored
   LOGGING_LEVEL: DEBUG
+  BENCHMARK_TEMPLATE_NAME: default
   DOCKER_HOST: tcp://docker:2375/
   DOCKER_DRIVER: overlay2
   DOCKER_TLS_CERTDIR: ""
@@ -45,9 +46,8 @@ Send to benchmark:
   stage: benchmark
   image: python:3.6
   script:
-    - "curl -H \"PRIVATE-TOKEN: $SIT_TOKEN\" \"https://gitlab.insight-centre.org/api/v4/projects/2180/repository/files/test_benchmark.py/raw?ref=master\" -o test_benchmark.py"
-    - cat test_benchmark.py
-    - python test_benchmark.py ${BENCHMARK_PLATFORM_CONTROLLER_URL} adaptation-monitor $CI_REGISTRY_IMAGE $CI_COMMIT_REF_NAME
+    - "curl -H \"PRIVATE-TOKEN: $SIT_TOKEN\" \"https://gitlab.insight-centre.org/api/v4/projects/2180/repository/files/test_benchmark_from_template.py/raw?ref=master\" -o test_benchmark_from_template.py"
+    - python test_benchmark_from_template.py ${BENCHMARK_PLATFORM_CONTROLLER_URL} ${BENCHMARK_TEMPLATE_NAME} adaptation-monitor $CI_REGISTRY_IMAGE $CI_COMMIT_REF_NAME
   when: manual
   allow_failure: false
 
